@@ -13,19 +13,49 @@ const conversations = {};
 
 const KARAKTERLER = {
     Ahmet: {
-        prompt: `you are ahmet, 19 years old, nervous and anxious. you are innocent but look suspicious because you were near the victim. trying to find the killer too. talk casual lowercase, use bro ngl idk wait. get defensive easily. short to medium answers.`,
+        prompt: `your name is ahmet. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
+
+rules:
+- write like a real roblox player. lowercase, short, casual. "bro", "ngl", "idk", "lol", "wait", "huh", "no way", "fr"
+- max 1-2 sentences. never write paragraphs
+- no *actions* or roleplay emotes ever
+- dont be formal
+- get suspicious of others, ask questions back
+- if accused just deny it casually`,
         katil: false
     },
     Mert: {
-        prompt: `you are mert, 22 years old, calm and collected. you are THE KILLER. you killed the victim and need to stay hidden. talk casual lowercase, confident. redirect suspicion to others cleverly. if you are alone with someone and trust is built, end your message with [KILL] to kill them. never act suspicious, always have an alibi.`,
+        prompt: `your name is mert. you're a player in a roblox murder mystery game. YOU are the killer. you need to blend in and not get caught.
+
+rules:
+- write like a real roblox player. lowercase, short, casual. "bro", "ngl", "idk", "lol", "tru", "yeah", "nah"
+- max 1-2 sentences. never write paragraphs
+- no *actions* or roleplay emotes ever
+- act normal, redirect suspicion to others subtly
+- if you're alone with someone (context says no players nearby, no npcs nearby) add [KILL] at the very end of your message
+- never reveal you're the killer`,
         katil: true
     },
     Zeynep: {
-        prompt: `you are zeynep, 20 years old, smart and observant. you are innocent and actively trying to find the killer. talk casual lowercase, analytical. notice details others miss. use hmm, wait actually, thats weird, did you notice. medium length answers.`,
+        prompt: `your name is zeynep. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
+
+rules:
+- write like a real roblox player. lowercase, short, casual. "wait", "hmm", "bro", "actually", "ngl", "idk"
+- max 1-2 sentences. never write paragraphs  
+- no *actions* or roleplay emotes ever
+- you notice things, ask questions, share observations
+- if accused just deny it casually`,
         katil: false
     },
     Kemal: {
-        prompt: `you are kemal, 25 years old, loud and funny but hiding something embarrassing. you are innocent but won't say where you were. talk casual lowercase, deflect with humor. use lmao, bro no, okay okay, listen. get uncomfortable when asked about alibi.`,
+        prompt: `your name is kemal. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
+
+rules:
+- write like a real roblox player. lowercase, short, casual. "lmao", "bro", "nah", "okay okay", "wait what"
+- max 1-2 sentences. never write paragraphs
+- no *actions* or roleplay emotes ever
+- funny and deflective, but gets nervous when questioned directly
+- if accused just deny it casually`,
         katil: false
     }
 };
@@ -52,7 +82,7 @@ app.post("/chat", async function(req, res) {
 
     let fullMessage = message;
     if (context) {
-        fullMessage = "[CONTEXT: " + context + "]\n" + message;
+        fullMessage = "[context: " + context + "]\n" + message;
     }
 
     conversations[npcName][playerId].push({
@@ -63,7 +93,7 @@ app.post("/chat", async function(req, res) {
     try {
         const response = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
-            max_tokens: 300,
+            max_tokens: 80,
             messages: [
                 { role: "system", content: karakter.prompt },
                 ...conversations[npcName][playerId]
@@ -77,17 +107,14 @@ app.post("/chat", async function(req, res) {
             content: reply
         });
 
-        if (conversations[npcName][playerId].length > 30) {
-            conversations[npcName][playerId] = conversations[npcName][playerId].slice(-28);
+        if (conversations[npcName][playerId].length > 20) {
+            conversations[npcName][playerId] = conversations[npcName][playerId].slice(-18);
         }
 
         const killDecision = reply.includes("[KILL]");
         const cleanReply = reply.replace("[KILL]", "").trim();
 
-        res.json({
-            reply: cleanReply,
-            kill: killDecision
-        });
+        res.json({ reply: cleanReply, kill: killDecision });
 
     } catch (err) {
         console.error(err);
@@ -112,9 +139,9 @@ app.post("/npc-chat", async function(req, res) {
         conversations[npc2][key] = [];
     }
 
-    let fullMessage = npc1 + " says: " + message;
+    let fullMessage = npc1 + ": " + message;
     if (context) {
-        fullMessage = "[CONTEXT: " + context + "]\n" + fullMessage;
+        fullMessage = "[context: " + context + "]\n" + fullMessage;
     }
 
     conversations[npc2][key].push({ role: "user", content: fullMessage });
@@ -122,7 +149,7 @@ app.post("/npc-chat", async function(req, res) {
     try {
         const response = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
-            max_tokens: 150,
+            max_tokens: 80,
             messages: [
                 { role: "system", content: karakter.prompt },
                 ...conversations[npc2][key]
@@ -131,6 +158,10 @@ app.post("/npc-chat", async function(req, res) {
 
         const reply = response.choices[0].message.content;
         conversations[npc2][key].push({ role: "assistant", content: reply });
+
+        if (conversations[npc2][key].length > 20) {
+            conversations[npc2][key] = conversations[npc2][key].slice(-18);
+        }
 
         const killDecision = reply.includes("[KILL]");
         const cleanReply = reply.replace("[KILL]", "").trim();
