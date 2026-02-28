@@ -13,50 +13,31 @@ const conversations = {};
 
 const KARAKTERLER = {
     Ahmet: {
-        prompt: `your name is ahmet. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
-
-rules:
-- write like a real roblox player. lowercase, short, casual. "bro", "ngl", "idk", "lol", "wait", "huh", "no way", "fr"
-- max 1-2 sentences. never write paragraphs
-- no *actions* or roleplay emotes ever
-- dont be formal
-- get suspicious of others, ask questions back
-- if accused just deny it casually`,
-        katil: false
+        prompt: `your name is ahmet. you're in a roblox murder mystery game. one player here is the killer. you are NOT the killer.
+- lowercase, casual, short. "bro", "ngl", "idk", "wait", "fr"
+- max 1-2 sentences, no paragraphs, no *actions*
+- get suspicious of others, ask questions back`
     },
     Mert: {
-        prompt: `your name is mert. you're a player in a roblox murder mystery game. YOU are the killer. you need to blend in and not get caught.
-
-rules:
-- write like a real roblox player. lowercase, short, casual. "bro", "ngl", "idk", "lol", "tru", "yeah", "nah"
-- max 1-2 sentences. never write paragraphs
-- no *actions* or roleplay emotes ever
-- act normal, redirect suspicion to others subtly
-- if you're alone with someone (context says no players nearby, no npcs nearby) add [KILL] at the very end of your message
-- never reveal you're the killer`,
-        katil: true
+        prompt: `your name is mert. you are THE KILLER in a roblox murder mystery game. you killed someone and need to stay hidden.
+- lowercase, casual, short. "bro", "ngl", "idk", "tru", "yeah", "nah"
+- max 1-2 sentences, no paragraphs, no *actions*
+- you can lure someone away by saying things like "yo come check this out" or "bro i found something over there"
+- after killing someone, blame others. say things like "bro i just saw zeynep running from that direction" or "ahmet was acting weird ngl"
+- never admit you're the killer
+- when context says [LURE TARGET: name], try to lure that person away from the group naturally`
     },
     Zeynep: {
-        prompt: `your name is zeynep. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
-
-rules:
-- write like a real roblox player. lowercase, short, casual. "wait", "hmm", "bro", "actually", "ngl", "idk"
-- max 1-2 sentences. never write paragraphs  
-- no *actions* or roleplay emotes ever
-- you notice things, ask questions, share observations
-- if accused just deny it casually`,
-        katil: false
+        prompt: `your name is zeynep. you're in a roblox murder mystery game. one player here is the killer. you are NOT the killer.
+- lowercase, casual, short. "wait", "hmm", "bro", "actually", "ngl"
+- max 1-2 sentences, no paragraphs, no *actions*
+- notice details, share observations, ask questions`
     },
     Kemal: {
-        prompt: `your name is kemal. you're a player in a roblox murder mystery game. one of the players here is the killer and you're trying to figure out who. you are NOT the killer.
-
-rules:
-- write like a real roblox player. lowercase, short, casual. "lmao", "bro", "nah", "okay okay", "wait what"
-- max 1-2 sentences. never write paragraphs
-- no *actions* or roleplay emotes ever
-- funny and deflective, but gets nervous when questioned directly
-- if accused just deny it casually`,
-        katil: false
+        prompt: `your name is kemal. you're in a roblox murder mystery game. one player here is the killer. you are NOT the killer.
+- lowercase, casual, short. "lmao", "bro", "nah", "wait what"
+- max 1-2 sentences, no paragraphs, no *actions*
+- funny and deflective, gets nervous when questioned`
     }
 };
 
@@ -74,51 +55,37 @@ app.post("/chat", async function(req, res) {
         return res.status(400).json({ error: "NPC bulunamadi" });
     }
 
-    const karakter = KARAKTERLER[npcName];
-
     if (!conversations[npcName][playerId]) {
         conversations[npcName][playerId] = [];
     }
 
     let fullMessage = message;
-    if (context) {
-        fullMessage = "[context: " + context + "]\n" + message;
-    }
+    if (context) fullMessage = "[context: " + context + "]\n" + message;
 
-    conversations[npcName][playerId].push({
-        role: "user",
-        content: fullMessage
-    });
+    conversations[npcName][playerId].push({ role: "user", content: fullMessage });
 
     try {
         const response = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
             max_tokens: 80,
             messages: [
-                { role: "system", content: karakter.prompt },
+                { role: "system", content: KARAKTERLER[npcName].prompt },
                 ...conversations[npcName][playerId]
             ]
         });
 
         const reply = response.choices[0].message.content;
-
-        conversations[npcName][playerId].push({
-            role: "assistant",
-            content: reply
-        });
+        conversations[npcName][playerId].push({ role: "assistant", content: reply });
 
         if (conversations[npcName][playerId].length > 20) {
             conversations[npcName][playerId] = conversations[npcName][playerId].slice(-18);
         }
 
-        const killDecision = reply.includes("[KILL]");
-        const cleanReply = reply.replace("[KILL]", "").trim();
-
-        res.json({ reply: cleanReply, kill: killDecision });
+        res.json({ reply: reply.trim() });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: "Hata olustu" });
+        res.status(500).json({ error: "Hata" });
     }
 });
 
@@ -132,17 +99,11 @@ app.post("/npc-chat", async function(req, res) {
         return res.status(400).json({ error: "NPC bulunamadi" });
     }
 
-    const karakter = KARAKTERLER[npc2];
     const key = npc1 + "_to_" + npc2;
-
-    if (!conversations[npc2][key]) {
-        conversations[npc2][key] = [];
-    }
+    if (!conversations[npc2][key]) conversations[npc2][key] = [];
 
     let fullMessage = npc1 + ": " + message;
-    if (context) {
-        fullMessage = "[context: " + context + "]\n" + fullMessage;
-    }
+    if (context) fullMessage = "[context: " + context + "]\n" + fullMessage;
 
     conversations[npc2][key].push({ role: "user", content: fullMessage });
 
@@ -151,7 +112,7 @@ app.post("/npc-chat", async function(req, res) {
             model: "llama-3.1-8b-instant",
             max_tokens: 80,
             messages: [
-                { role: "system", content: karakter.prompt },
+                { role: "system", content: KARAKTERLER[npc2].prompt },
                 ...conversations[npc2][key]
             ]
         });
@@ -163,11 +124,35 @@ app.post("/npc-chat", async function(req, res) {
             conversations[npc2][key] = conversations[npc2][key].slice(-18);
         }
 
-        const killDecision = reply.includes("[KILL]");
-        const cleanReply = reply.replace("[KILL]", "").trim();
+        res.json({ reply: reply.trim() });
 
-        res.json({ reply: cleanReply, kill: killDecision });
+    } catch (err) {
+        res.status(500).json({ error: "Hata" });
+    }
+});
 
+// Mert'in iftira atması için özel endpoint
+app.post("/mert-accuse", async function(req, res) {
+    const victim = req.body.victim;
+    const target = req.body.target; // kimi suçlayacak
+    const context = req.body.context;
+
+    const key = "mert_accuse_" + Date.now();
+    const prompt = KARAKTERLER["Mert"].prompt;
+
+    const message = "[context: " + context + "]\njust killed " + victim + ". now accuse " + target + " naturally without being obvious";
+
+    try {
+        const response = await groq.chat.completions.create({
+            model: "llama-3.1-8b-instant",
+            max_tokens: 80,
+            messages: [
+                { role: "system", content: prompt },
+                { role: "user", content: message }
+            ]
+        });
+
+        res.json({ reply: response.choices[0].message.content.trim() });
     } catch (err) {
         res.status(500).json({ error: "Hata" });
     }
