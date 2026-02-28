@@ -40,7 +40,7 @@ how to talk:
         const response = await groq.chat.completions.create({
             model: "llama-3.1-8b-instant",
             messages: conversations[playerId],
-            max_tokens: 100
+            max_tokens: 200
         });
 
         const reply = response.choices[0].message.content;
@@ -60,3 +60,4 @@ how to talk:
 });
 
 app.listen(process.env.PORT || 3000, () => console.log("Calisiyor"));
+
